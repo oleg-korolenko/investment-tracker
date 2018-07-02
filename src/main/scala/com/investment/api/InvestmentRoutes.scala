@@ -11,6 +11,8 @@ import akka.http.scaladsl.server.directives.RouteDirectives.complete
 import akka.pattern.ask
 import akka.util.Timeout
 import com.investment.api.InvestmentRegistryActor._
+import com.investment.domain.InvestmentDomain.Investment
+import com.investment.producer.InvestmentProducerActor.SaveInvestment
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -24,6 +26,7 @@ trait InvestmentRoutes extends JsonSupport {
   lazy val log = Logging(system, classOf[InvestmentRoutes])
 
   def investmentRegistryActor: ActorRef
+  def investmentProducerActor: ActorRef
 
   // Required by the `ask` (?) method below
   implicit lazy val timeout = Timeout(5.seconds) // usually we'd obtain the timeout from the system's configuration
@@ -40,11 +43,11 @@ trait InvestmentRoutes extends JsonSupport {
               complete(investments)
             },
             post {
-              entity(as[Investment]) { user =>
+              entity(as[Investment]) { invest =>
                 val investmentCreated: Future[ActionPerformed] =
-                  (investmentRegistryActor ? CreateInvestment(user)).mapTo[ActionPerformed]
+                  (investmentProducerActor ? SaveInvestment(invest)).mapTo[ActionPerformed]
                 onSuccess(investmentCreated) { performed =>
-                  log.info("Created Investment [{}]: {}", user.name, performed.description)
+                  log.info("Created Investment [{}]: {}", invest.coin, performed.description)
                   complete((StatusCodes.Created, performed))
                 }
               }
