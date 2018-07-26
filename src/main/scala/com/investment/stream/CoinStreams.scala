@@ -22,9 +22,9 @@ trait CoinStreams {
   implicit def materializer: ActorMaterializer
   implicit def executionContext: ExecutionContextExecutor
 
-  val httpClient = Http().outgoingConnectionHttps(host = "chasing-coins.com", port = 443)
+  lazy val httpClient = Http().outgoingConnectionHttps(host = "chasing-coins.com", port = 443)
 
-  val getCoinsMarketCapStream = Source
+  lazy val getCoinsMarketCapStream = Source
     .tick(100 millis, 5 minutes, HttpRequest(uri = Uri("/api/v1/std/marketcap")))
     .via(httpClient)
     .mapAsync(1)(res =>
@@ -37,7 +37,7 @@ trait CoinStreams {
     }*/
     .map { coin => new ProducerRecord[Array[Byte], String]("coinMarketCap", coin) }
 
-  val getETHStatsStream = Source
+  lazy val getETHStatsStream = Source
     .tick(100 millis, 1 minute, HttpRequest(uri = Uri("/api/v1/std/coin/ETH")))
     .via(httpClient)
     .mapAsync(1)(res =>
@@ -45,8 +45,5 @@ trait CoinStreams {
         .runWith(Sink.fold(ByteString.empty)(_ ++ _))
         .map(_.utf8String))
     .log("error logging")
-    /*.recover {
-      case _: StreamTcpException ⇒ "Nooooooooo"
-    }*/
     .map { coin => new ProducerRecord[Array[Byte], String]("coinStats", coin) }
 }
